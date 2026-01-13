@@ -1,0 +1,44 @@
+/* www/league_styles.css */
+
+/* Neon Glow for Cards */
+.league-card {
+  border: 1px solid #38003C !important;
+  box-shadow: 0px 4px 15px rgba(0, 255, 133, 0.1) !important;
+  background-color: #190028 !important;
+  border-radius: 12px !important;
+}
+
+/* Fix for Value Box icon and text alignment */
+.bslib-value-box .value-box-grid {
+  gap: 10px !important;
+}
+
+.bslib-value-box .value-box-value {
+  font-family: 'Poppins', sans-serif !important;
+  font-weight: 700 !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Trend Indicator Styling */
+.trend-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  width: fit-content;
+}
+
+/* Custom Scrollbar for the Table Card */
+.card-body::-webkit-scrollbar {
+  width: 6px;
+}
+.card-body::-webkit-scrollbar-track {
+  background: #190028;
+}
+.card-body::-webkit-scrollbar-thumb {
+  background: #38003C;
+  border-radius: 10px;
+}
