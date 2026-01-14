@@ -1,55 +1,77 @@
-# EPL Fantasy Dashboard
+# EPL Fantasy Dashboard 
 
-A comprehensive R Shiny dashboard for Fantasy Premier League (FPL) managers. This tool provides advanced analytics, squad optimization, and league tracking capabilities to help you make data-driven decisions.
+![Dashboard Cover](www/cover_image.png)
 
-## Features
 
-- **Player Explorer**: Filter and sort players by form, price, position, and underlying stats (xGI, ICT Index). Includes visual profiles and fixture tickers.
-- **Dream Team Optimizer**: Uses Linear Programming (`lpSolve`) to generate the optimal squad for the upcoming gameweek based on predicted points and budget constraints (1-3-4-3 formation strategy).
-- **League Analysis**: Deep dive into mini-leagues, featuring:
-    - Live standings with form sparklines.
-    - Transfer market efficiency analysis.
-    - Captaincy decision tracking.
-    - "Regret Meter" for points left on the bench.
-- **Fixture Ticker**: Visualizes fixture difficulty for the next 5 gameweeks.
-- **Season History**: Interactive charts tracking player performance over the season.
-- **Accuracy Check**: Tracks the performance of the optimizer's predictions against actual results.
+A professional-grade R Shiny dashboard for Fantasy Premier League (FPL) managers. This tool leverages the FPL API, Linear Programming optimization, and advanced data visualization to provide a competitive edge.
 
-## Installation
+##  Features
 
-1.  **Clone the repository:**
+### 1.  Dream Team Optimizer
+- **Algorithm**: Uses `lpSolve` for linear optimization.
+- **Strategy**: Generates the optimal "1-3-4-3" squad based on predicted points (`ep_next`) and budget constraints.
+- **Constraints**: Handles budget caps, max 3 players per team, and formation rules.
+
+### 2.  Player Explorer
+- **Deep Dive**: Filter players by Team, Position, Availability, and Price.
+- **Advanced Metrics**: Visualize `xGI` (Expected Goal Involvement), `ICT Index`, and Form.
+- **Visuals**: Radar charts for attribute comparison and Sunburst charts for points distribution.
+
+### 3.  League Analysis
+- **Mini-League Tracking**: Analyze your private leagues.
+- **Rival Watch**: Track live standings, transfer activity, and captaincy choices of your rivals.
+- **"Regret Meter"**: Visualizes points left on the bench for every manager in the league.
+- **Transfer Efficiency**: Calculates the net point gain/loss from transfer market moves.
+
+### 4.  Fixture Ticker
+- **Difficulty Matrix**: Color-coded view of the next 5 gameweeks.
+- **FDR**: Uses official Fixture Difficulty Ratings to highlight easy/hard runs.
+
+### 5.  Performance Tracking
+- **Accuracy Check**: Compares the Optimizer's predictions vs. Actual results to track model performance over time.
+- **Season History**: Interactive sparklines and violin plots to compare player consistency against the league average.
+
+##  Installation & Setup
+
+### 1. Clone the Repository
     ```bash
     git clone https://github.com/Dennis-DW/Moneyball-for-FPL
     ```
 
-2.  **Install required R packages:**
+### 2. Install R Dependencies
     Run the following R code to install dependencies:
     ```r
     install.packages(c(
       "shiny", "bslib", "tidyverse", "gt", "ggplot2", 
       "bsicons", "gtExtras", "dplyr", "tidyr", "httr", 
-      "jsonlite", "plotly", "lpSolve", "scales"
+      "jsonlite", "plotly", "lpSolve", "scales", "DT"
     ))
     ```
 
-## Usage
+### 3. Configure League ID
+To analyze **your specific mini-league**, you must update the League ID:
+1. Open `modules/league_analysis_server.R`.
+2. Find the line: `target_id <- "1167592"`.
+3. Replace `"1167592"` with your FPL League ID (found in the URL of your league standings page).
 
-1.  **Update Data:**
-    Before running the app, fetch the latest FPL data to ensure stats are current:
+##  Usage Workflow
+
+1.  **Update Data**:
+    Fetch the latest stats from the FPL API before every Gameweek.
     ```r
     source("update_data.R")
     ```
-    This script fetches data from the FPL API, cleans it, and saves it to the `data/` directory.
+    *This creates/updates `.rds` files in the `data/` folder.*
 
-2.  **Run the App:**
+2.  **Launch Dashboard**:
     ```r
     shiny::runApp()
     ```
 
-## Project Structure
+##  Project Structure
 
--   **`global.R`, `server.R`, `ui.R`**: Main Shiny application files.
--   **`R/`**: Backend logic for fetching data, cleaning, optimization, and league management.
--   **`modules/`**: Modularized Shiny components for different dashboard sections.
--   **`data/`**: Stores fetched `.rds` and `.csv` files (generated locally).
--   **`www/`**: Custom CSS styles.
+- **`global.R` / `server.R` / `ui.R`**: Core Shiny application files.
+- **`R/`**: Backend scripts for data fetching (`01_fetch_data.R`), cleaning (`02_clean_data.R`), and optimization (`03_optimizer.R`).
+- **`modules/`**: UI/Server modules for specific tabs (e.g., `dream_team.R`, `player_explorer.R`).
+- **`data/`**: Local storage for API data (ignored by Git).
+- **`www/`**: Custom assets (CSS, images).

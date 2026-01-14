@@ -18,6 +18,8 @@ library(plotly)
 source("R/03_optimizer.R")
 source("R/04_fetch_history.R")
 source("R/06_prediction_manager.R")
+source("R/10_scout_logic.R")
+source("R/09_scout_charts.R")
 source("R/07_league_fetcher.R") 
 
 # --- 2. LOAD MODULES (Main Wrappers Only) ---

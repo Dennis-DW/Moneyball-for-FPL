@@ -1,5 +1,9 @@
 # modules/league_analysis_server.R
 
+# Ensure chart components are loaded
+source("modules/components/league_chart.R")
+source("modules/components/structure_chart.R") 
+
 leagueAnalysisServer <- function(id, fpl_data) {
   moduleServer(id, function(input, output, session) {
     
@@ -91,7 +95,12 @@ leagueAnalysisServer <- function(id, fpl_data) {
     # B. Structure Radar 
     output$structure_radar <- renderPlotly({
       req(data_store$picks)
-      render_position_radar(as.data.frame(data_store$picks), fpl_data)
+      # Ensure structure_chart.R is sourced or function is available
+      if(exists("render_position_radar")) {
+        render_position_radar(as.data.frame(data_store$picks), fpl_data)
+      } else {
+        return(NULL)
+      }
     })
     
     # C. Transfers Efficiency
@@ -100,15 +109,23 @@ leagueAnalysisServer <- function(id, fpl_data) {
       render_transfer_efficiency(as.data.frame(data_store$transfers), fpl_data)
     })
     
-    # D. Standard Charts
-    output$ownership_chart <- renderPlotly({ req(data_store$picks); render_ownership_bar(as.data.frame(data_store$picks), fpl_data) })
-    output$similarity_chart <- renderPlotly({ req(data_store$picks); render_similarity_matrix(as.data.frame(data_store$picks)) })
+    # D. Ownership
+    output$ownership_chart <- renderPlotly({ 
+      req(data_store$picks)
+      render_ownership_bar(as.data.frame(data_store$picks), fpl_data) 
+    })
     
-    # E. Decisions (Captaincy)
+    # E. Similarity (FIXED FUNCTION NAME)
+    output$similarity_chart <- renderPlotly({ 
+      req(data_store$picks)
+       render_similarity_heatmap(as.data.frame(data_store$picks)) 
+    })
+    
+    # F. Decisions (Captaincy)
     output$season_cap_chart <- renderPlotly({ req(data_store$picks); render_season_captaincy(as.data.frame(data_store$picks), fpl_data) })
     output$gw_cap_table <- render_gt({ req(data_store$picks, input$gw_selector); render_gw_captaincy_table(as.data.frame(data_store$picks), fpl_data, input$gw_selector) })
     
-    # F. Regret (Bench Meter + Timeline)
+    # G. Regret (Bench Meter + Timeline)
     output$bench_chart <- renderPlotly({ req(data_store$picks); render_bench_efficiency(as.data.frame(data_store$picks), fpl_data) })
     
     output$bench_timeline_chart <- renderPlotly({

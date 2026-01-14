@@ -1,4 +1,5 @@
 library(tidyverse)
+library(stringr)
 
 clean_fpl_data <- function() {
   # 1. Load Raw data
@@ -23,13 +24,11 @@ clean_fpl_data <- function() {
   print(paste("Detected Gameweek:", current_gw_num))
   
   # --- PROCESS TEAMS ---
-  teams_clean <- raw$teams %>%
+  teams_clean <- raw$teams %>% 
     select(id, team_name = name, short_name, strength)
   
   # --- PROCESS PLAYERS ---
-  # (Removed history/sparkline logic here)
-  
-  players_clean <- raw$elements %>%
+  players_clean <- raw$elements %>% 
     select(
       id,
       web_name,
@@ -42,28 +41,34 @@ clean_fpl_data <- function() {
       # Core Stats
       total_points,
       event_points,
-      points_per_game,         
+      points_per_game,          
       form,
       ep_next,
       
       # Underlying Data
-      minutes,                 
-      goals_scored,            
-      assists,                 
-      clean_sheets,            
-      expected_goals,          
-      expected_assists,        
+      minutes,                  
+      goals_scored,             
+      assists,                  
+      clean_sheets,             
+      expected_goals,           
+      expected_assists,         
       expected_goal_involvements, 
-      ict_index,               
+      ict_index,
+      
+      # --- ADDED THESE CRITICAL STATS ---
+      influence,
+      creativity,
+      threat,
+      # ----------------------------------
       
       # Market & Status
       selected_by_percent,
-      transfers_in_event,      
+      transfers_in_event,       
       chance_of_playing_next_round,
       chance_of_playing_this_round, 
-      news,                    
+      news,                     
       photo
-    ) %>%
+    ) %>% 
     mutate(
       cost = now_cost / 10,
       form = as.numeric(form),
@@ -74,6 +79,12 @@ clean_fpl_data <- function() {
       expected_assists = as.numeric(expected_assists),
       ict_index = as.numeric(ict_index),
       transfers_in_event = as.numeric(transfers_in_event),
+      
+      # --- CONVERT STRINGS TO NUMERIC ---
+      influence = as.numeric(influence),
+      creativity = as.numeric(creativity),
+      threat = as.numeric(threat),
+      # ----------------------------------
       
       # Map Position IDs
       position = case_when(
@@ -96,9 +107,9 @@ clean_fpl_data <- function() {
     )
   
   # --- FINALIZE ---
-  final_df <- players_clean %>%
-    left_join(teams_clean, by = c("team_code" = "id")) %>%
-    mutate(event = current_gw_num) %>%
+  final_df <- players_clean %>% 
+    left_join(teams_clean, by = c("team_code" = "id")) %>% 
+    mutate(event = current_gw_num) %>% 
     select(
       id,
       web_name,
@@ -107,19 +118,25 @@ clean_fpl_data <- function() {
       cost,
       form,
       total_points,
-      # Removed last_5_scores
-      points_per_game,     
+      points_per_game,      
       ep_next,
       event,
-      minutes,             
-      goals_scored,        
-      assists,             
-      clean_sheets,        
-      expected_goals,      
-      expected_assists,    
-      ict_index,           
-      transfers_in_event,  
-      news,                
+      minutes,              
+      goals_scored,         
+      assists,              
+      clean_sheets,         
+      expected_goals,       
+      expected_assists,     
+      ict_index,
+      
+      # --- ENSURE THESE ARE IN THE FINAL DATA ---
+      influence,
+      creativity,
+      threat,
+      # ------------------------------------------
+      
+      transfers_in_event,   
+      news,                 
       everything()
     )
   

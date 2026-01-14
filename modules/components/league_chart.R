@@ -161,66 +161,52 @@ render_ownership_bar <- function(picks_df, fpl_data) {
     ) %>% config(displayModeBar = FALSE)
 }
 
-# --- 3. SIMILARITY MATRIX (Unchanged) ---
-render_similarity_matrix <- function(picks_df) {
+# --- 3. SIMILARITY MATRIX  ---
+render_similarity_heatmap <- function(picks_df) {
   req(picks_df)
   
+  # --- Filter for Latest Gameweek Only ---
   latest_gw <- max(picks_df$event, na.rm = TRUE)
-  current_picks <- picks_df %>% filter(event == latest_gw)
   
-  managers <- unique(current_picks$manager)
-  n <- length(managers)
-  sim_matrix <- matrix(0, nrow = n, ncol = n)
-  rownames(sim_matrix) <- managers; colnames(sim_matrix) <- managers
+  matrix_df <- picks_df %>%
+    filter(event == latest_gw) %>% 
+    select(element, manager) %>%
+    distinct() %>% 
+    mutate(owned = 1) %>%
+    pivot_wider(names_from = manager, values_from = owned, values_fill = 0)
   
-  for (i in 1:n) {
-    for (j in 1:n) {
-      if (i == j) {
-        sim_matrix[i, j] <- NA 
-      } else {
-        team_i <- current_picks$element[current_picks$manager == managers[i]]
-        team_j <- current_picks$element[current_picks$manager == managers[j]]
-        sim_matrix[i, j] <- length(intersect(team_i, team_j))
-      }
-    }
-  }
+  # 2. Calculate Similarity (Intersection)
+  mat <- as.matrix(matrix_df %>% select(-element))
   
-  max_shared <- max(sim_matrix, na.rm = TRUE)
-  if(!is.finite(max_shared) || max_shared == 0) max_shared <- 15 
+  if(ncol(mat) < 2) return(NULL)
   
-  cluster_mat <- sim_matrix
-  cluster_mat[is.na(cluster_mat)] <- 15 
-  ord <- hclust(dist(cluster_mat))$order
-  sim_matrix <- sim_matrix[ord, ord]
+  sim_matrix <- t(mat) %*% mat
+  mgr_names <- colnames(sim_matrix)
   
-  display_text <- sim_matrix
-  display_text[is.na(display_text)] <- ""
+  # 3. Create Annotation Grid
+  grid <- expand.grid(y = mgr_names, x = mgr_names) 
+  grid$val <- mapply(function(r, c) sim_matrix[r, c], grid$y, grid$x)
   
-  hover_text <- matrix(
-    paste0("<b>", rownames(sim_matrix)[row(sim_matrix)], " vs ", colnames(sim_matrix)[col(sim_matrix)], "</b><br>Shared: ", sim_matrix, "/15"), 
-    nrow = n
-  )
-  
+  # 4. Render Heatmap
   plot_ly(
-    x = colnames(sim_matrix), y = rownames(sim_matrix), z = sim_matrix,
-    type = "heatmap", 
-    zmin = 0, zmax = max_shared, 
-    colorscale = list(c(0, "#190028"), c(1, "#00FF85")),
-    hoverinfo = "text", text = hover_text, showscale = TRUE
+    x = mgr_names, y = mgr_names, z = sim_matrix,
+    type = "heatmap",
+    colorscale = list(c(0, "#2A0040"), c(1, "#00FF85")), 
+    hoverinfo = "text",
+    text = matrix(paste0("Shared Players: ", sim_matrix), nrow = nrow(sim_matrix)),
+    showscale = FALSE
   ) %>%
     add_annotations(
-      x = rep(colnames(sim_matrix), each = n),
-      y = rep(rownames(sim_matrix), times = n),
-      text = as.character(t(display_text)),
-      showarrow = FALSE, font = list(color = "white", size = 12)
+      x = grid$x, y = grid$y, text = grid$val,
+      showarrow = FALSE,
+      font = list(color = "white", size = 14, weight = "bold")
     ) %>%
     layout(
-      title = list(text = "Squad Similarity (Current GW)", font = list(size = 14, color = "white")),
-      paper_bgcolor = "rgba(0,0,0,0)", plot_bgcolor = "rgba(0,0,0,0)",
-      xaxis = list(tickangle = 45, color = "white", side = "bottom"), 
-      yaxis = list(color = "white", automargin = TRUE),
-      font = list(family = "Poppins", color = "white"),
-      margin = list(b = 100, l = 150)
+      xaxis = list(title = "", tickfont = list(color = "white"), side = "bottom"),
+      yaxis = list(title = "", tickfont = list(color = "white"), autorange = "reversed"),
+      paper_bgcolor = "rgba(0,0,0,0)",
+      plot_bgcolor = "rgba(0,0,0,0)",
+      margin = list(l=50, r=50, b=50, t=10)
     ) %>% config(displayModeBar = FALSE)
 }
 
@@ -355,7 +341,6 @@ render_bench_timeline <- function(picks_df, fpl_data) {
       plot_bgcolor = "rgba(0,0,0,0)",
       font = list(family = "Poppins", color = "white"),
       showlegend = TRUE,
-      # Position legend nicely at the top right inside the chart to save vertical space
       legend = list(x = 1, y = 1, xanchor = 'right') 
     ) %>% config(displayModeBar = FALSE)
 }

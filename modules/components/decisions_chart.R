@@ -1,71 +1,100 @@
 # modules/components/decisions_chart.R
+library(plotly)
+library(gt)
+library(dplyr)
+library(tidyr)
 
-
-# --- 1. SEASON AGGREGATE CHART ---
+# --- 1. SEASON EFFICIENCY ---
 render_season_captaincy <- function(picks_df, fpl_data) {
   req(picks_df, fpl_data)
   
   picks_df <- as.data.frame(picks_df)
   
-  # Ensure gw_points exists
   if(!"gw_points" %in% names(picks_df)) {
-    validate("Data needs refreshing to see historical points. Please clear 'data/' folder and restart.")
+    validate("Data needs refreshing to see historical points.")
   }
   
-  # Use PRE-FETCHED gw_points
-  # Note: multiplier > 1 means Captain (2x) 
+  # 1. Prepare Data
   season_analysis <- picks_df %>%
     group_by(manager) %>%
     summarise(
-      # Actual Captain Points (using the points stored in picks_df)
+      # Actual: Points from chosen captain (multiplier > 1)
       total_actual = sum(gw_points[multiplier > 1] * multiplier[multiplier > 1], na.rm = TRUE),
-      
-      # Optimal Captain Points (Max score in squad * 2)
+      # Optimal: Max points in squad * 2
       total_optimal = sum(tapply(gw_points, event, max, na.rm=TRUE) * 2, na.rm = TRUE),
       .groups = "drop"
     ) %>%
-    mutate(points_lost = total_optimal - total_actual) %>%
-    arrange(desc(total_actual)) %>%
-    as.data.frame()
+    mutate(
+      points_lost = total_optimal - total_actual,
+      efficiency = (total_actual / total_optimal) * 100
+    ) %>%
+    arrange(desc(total_actual))
   
-  season_analysis$label <- paste0(season_analysis$total_actual, " pts")
+  season_analysis$label <- paste0("<b>", season_analysis$total_actual, "</b>")
   season_analysis$hover <- paste0(
     "<b>", season_analysis$manager, "</b><br>",
     "Actual: ", season_analysis$total_actual, "<br>",
-    "Max Possible: ", season_analysis$total_optimal, "<br>",
-    "Lost: ", season_analysis$points_lost
+    "Optimal: ", season_analysis$total_optimal, "<br>",
+    "Lost: -", season_analysis$points_lost, " pts"
   )
   
+  # 2. Render Chart
   plot_ly(season_analysis) %>%
+    # Background Bar (Potential)
     add_trace(
-      y = ~reorder(manager, total_actual), x = ~total_optimal,
-      type = "bar", orientation = "h", name = "Potential",
-      marker = list(color = "rgba(255, 255, 255, 0.1)", line = list(color = "#888", width = 1)),
-      hoverinfo = "skip"
-    ) %>%
-    add_trace(
-      y = ~reorder(manager, total_actual), x = ~total_actual,
-      type = "bar", orientation = "h", name = "Actual",
+      y = ~reorder(manager, total_actual), 
+      x = ~total_optimal,
+      type = "bar", 
+      orientation = "h", 
+      name = "Missed Potential",
       marker = list(
-        color = ~ifelse(points_lost == 0, "#00FF85", "#E90052"),
+        color = "rgba(255, 255, 255, 0.05)", 
+        line = list(color = "#444", width = 1)
+      ),
+      hoverinfo = "text",
+      hovertext = ~paste0("Max Possible: ", total_optimal)
+    ) %>%
+    # Foreground Bar (Actual)
+    add_trace(
+      y = ~reorder(manager, total_actual), 
+      x = ~total_actual,
+      type = "bar", 
+      orientation = "h", 
+      name = "Secured Points",
+      marker = list(
+        color = ~ifelse(efficiency >= 80, "#00FF85", ifelse(efficiency >= 60, "#04F5FF", "#E90052")), # Color based on success
         line = list(color = "white", width = 1)
       ),
-      text = season_analysis$label,
-      textposition = "auto", textfont = list(color = "white"),
-      hoverinfo = "text", hovertext = season_analysis$hover
+      text = ~label,
+      textposition = "inside",
+      insidetextanchor = "middle",
+      textfont = list(color = "black", weight = "bold"),
+      hoverinfo = "text", 
+      hovertext = ~hover
     ) %>%
     layout(
-      title = list(text = "Season Captaincy Efficiency", font = list(size = 14, color = "white")),
-      paper_bgcolor = "rgba(0,0,0,0)", plot_bgcolor = "rgba(0,0,0,0)",
+      title = list(text = "Captaincy Efficiency (Actual vs Max)", font = list(size = 14, color = "white")),
       barmode = "overlay", 
-      xaxis = list(title = "Total Points", color = "white", gridcolor = "#333"),
-      yaxis = list(title = "", color = "white"), 
+      xaxis = list(
+        title = "Total Captain Points", 
+        color = "#aaa", 
+        gridcolor = "#333", 
+        zeroline = FALSE
+      ),
+      yaxis = list(
+        title = "", 
+        color = "white", 
+        tickfont = list(size = 11)
+      ),
+      paper_bgcolor = "rgba(0,0,0,0)", 
+      plot_bgcolor = "rgba(0,0,0,0)",
       font = list(family = "Poppins", color = "white"),
-      showlegend = FALSE, margin = list(l = 100)
+      showlegend = FALSE, 
+      margin = list(l = 100, r = 20, t = 40, b = 40)
     ) %>% config(displayModeBar = FALSE)
 }
 
-# --- 2. GAMEWEEK TABLE ---
+# --- 2. GAMEWEEK REPORT TABLE (High Contrast) ---
 render_gw_captaincy_table <- function(picks_df, fpl_data, target_gw) {
   req(picks_df, fpl_data, target_gw)
   
@@ -73,12 +102,9 @@ render_gw_captaincy_table <- function(picks_df, fpl_data, target_gw) {
     filter(event == as.numeric(target_gw)) %>%
     as.data.frame()
   
-  shiny::validate(
-    shiny::need(nrow(gw_picks) > 0, paste("No data available for Gameweek", target_gw))
-  )
+  if(nrow(gw_picks) == 0) return(gt(data.frame(Message = "No Data")))
   
-  # Join with names (FPL Data) 
-  # Points are already in picks_df as 'gw_points'
+  # Join with player names
   full_data <- gw_picks %>%
     left_join(fpl_data %>% select(id, web_name), by = c("element" = "id")) %>%
     mutate(gw_points = replace_na(gw_points, 0))
@@ -87,63 +113,58 @@ render_gw_captaincy_table <- function(picks_df, fpl_data, target_gw) {
     group_by(manager) %>%
     summarise(
       Cap_Name = web_name[which.max(multiplier)],
-      # Actual points calculation (handling TC)
       Cap_Pts  = gw_points[which.max(multiplier)] * multiplier[which.max(multiplier)],
-      
       Best_Name = web_name[which.max(gw_points)],
-      Best_Pts  = max(gw_points) * 2, # Assume standard 2x for comparison
+      Best_Pts  = max(gw_points) * 2, 
       .groups = "drop"
     ) %>%
-    mutate(Difference = Best_Pts - Cap_Pts) %>%
+    mutate(
+      Difference = Best_Pts - Cap_Pts,
+      Status = ifelse(Difference == 0, "✅ Optimal", paste0("❌ -", Difference))
+    ) %>%
     arrange(desc(Cap_Pts))
   
   # Render Table
   gw_table %>%
-    select(manager, Cap_Name, Cap_Pts, Best_Name, Best_Pts, Difference) %>%
+    select(manager, Cap_Name, Cap_Pts, Best_Name, Status) %>%
     gt() %>%
     cols_label(
       manager = "Manager",
       Cap_Name = "Captain",
       Cap_Pts = "Pts",
-      Best_Name = "Optimal",
-      Best_Pts = "Max",
-      Difference = "Lost"
+      Best_Name = "Optimal Pick",
+      Status = "Result"
     ) %>%
     tab_header(
-      title = paste0("Gameweek ", target_gw, " Report"),
-      subtitle = "Captaincy vs Optimal"
+      title = paste0("Gameweek ", target_gw, " Report")
     ) %>%
     tab_options(
       table.width = pct(100),
-      table.background.color = "#190028",      
-      heading.background.color = "#2A0040",    
-      column_labels.background.color = "#2A0040",
+      table.background.color = "#190028",
       table.font.color = "white",
-      heading.title.font.size = px(16),
-      heading.subtitle.font.size = px(12),
-      table.font.size = px(13),
-      data_row.padding = px(4),
-      heading.padding = px(5),
-      column_labels.padding = px(5),
+      table.font.size = px(12),
+      column_labels.font.weight = "bold",
+      column_labels.background.color = "#2A0040",
       table.border.top.style = "none",
       table.border.bottom.style = "none",
-      heading.border.bottom.style = "none",
-      column_labels.border.bottom.style = "none",
-      table_body.border.bottom.style = "none",
-      table_body.hlines.style = "solid",
-      table_body.hlines.color = "#444444" 
+      data_row.padding = px(6)
     ) %>%
+    # Highlight Captain Points (Green Scale)
     data_color(
       columns = c(Cap_Pts),
-      method = "numeric",
-      palette = c("#190028", "#00FF85")
+      colors = scales::col_numeric(
+        palette = c("#190028", "#00FF85"),
+        domain = NULL
+      )
     ) %>%
-    data_color(
-      columns = c(Difference),
-      method = "numeric",
-      palette = c("#190028", "#E90052")
+    # Highlight Result Text (Manual Logic)
+    tab_style(
+      style = cell_text(color = "#00FF85", weight = "bold"),
+      locations = cells_body(columns = Status, rows = grepl("Optimal", Status))
     ) %>%
-    cols_align(align = "left", columns = manager) %>%
-    cols_align(align = "center", columns = -manager) %>%
-    opt_table_font(font = google_font("Poppins"))
+    tab_style(
+      style = cell_text(color = "#E90052", weight = "bold"),
+      locations = cells_body(columns = Status, rows = grepl("❌", Status))
+    ) %>%
+    cols_align(align = "center", columns = -manager)
 }
